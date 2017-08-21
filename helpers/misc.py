@@ -2,6 +2,7 @@ import sys
 import subprocess
 import uuid
 import tensorflow as tf
+import os
 
 def progress(count, total, suffix=''):
     bar_len = 60
@@ -16,16 +17,41 @@ def progress(count, total, suffix=''):
 def get_git_revision_short_hash():
     return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
 
-def extend_options(parser):
+def extend_options(parser, project_name):
     (options, args) = parser.parse_args()
-    experiment_name = '{}_{}'.format(get_git_revision_short_hash(), str(uuid.uuid4())[:4])
-    experiment_location = '{}/{}/'.format(options.logdir, options.repo_name)
-    run_name = '{}/{}'.format(experiment_location, experiment_name)
 
-    parser.add_option("--experiment_name",      dest="experiment_name",       default='{}'.format(experiment_name),     type='string')
-    parser.add_option("--experiment_location",  dest="experiment_location",   default='{}'.format(experiment_location), type='string')
-    parser.add_option("--run_name",             dest="run_name",              default='{}'.format(run_name),            type='string')
+    project_folder = '{}/{}'.format(options.MAIN_PATH, project_name)
+    experiment_name = '{}'.format(str(uuid.uuid4().hex)[4:])
+    experiment_folder = '{}/{}'.format(project_folder, experiment_name)
+
+    parser.add_option("--project_folder",       dest="project_folder",
+                        default='{}'.format(project_folder),                type='string')
+
+    parser.add_option("--experiment_name",      dest="experiment_name",
+                        default='{}'.format(experiment_name),               type='string')
+
+    parser.add_option("--experiment_folder",    dest="experiment_folder",
+                        default=experiment_folder, type='string')
+
+    parser.add_option("--checkpoints_path",     dest="checkpoints_path",
+                        default='{}/checkpoints/'.format(experiment_folder),   type='string')
+
+    parser.add_option("--tensorboard_path",     dest="tensorboard_path",
+                        default='{}/tensorboard'.format(experiment_folder),    type='string')
+
+    parser.add_option("--logs_path",            dest="logs_path",
+                        default='{}/logs'.format(experiment_folder),           type='string')
+
     (options, args) = parser.parse_args()
+
+    # Make sure that folders and file exits logs.txt exists
+    if not os.path.exists(experiment_folder):
+        subprocess.call(['mkdir','{}'.format(options.experiment_folder)])
+        subprocess.call(['mkdir','{}'.format(options.tensorboard_path)])
+        subprocess.call(['mkdir','{}'.format(options.checkpoints_path)])
+        subprocess.call(['mkdir','{}'.format(options.logs_path)])
+        subprocess.call(['touch','{}/log.txt'.format(options.logs_path)])
+
     return options
 
 def check_tf_version():
