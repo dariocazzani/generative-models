@@ -9,11 +9,13 @@ Authors:    Dario Cazzani
 import sys
 sys.path.append('../')
 from config import set_config
-from helpers.misc import extend_options, check_tf_version
+from helpers.misc import check_tf_version, extend_options
 
+import subprocess
 import tensorflow as tf
 import numpy as np
 import datetime
+import glob
 import os
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
@@ -24,22 +26,10 @@ mnist = input_data.read_data_sets('./Data', one_hot=True)
 
 # Parameters
 input_dim = 784
-n_l1 = 1000
-n_l2 = 1000
-z_dim = 2
-batch_size = 100
-n_epochs = 1000
-learning_rate = 1E-3
-beta1 = 0.9
+hidden_layer1 = 1000
+hidden_layer2 = 1000
 
-
-# Placeholders for input data and the targets
-x_input = tf.placeholder(dtype=tf.float32, shape=[batch_size, input_dim], name='Input')
-x_target = tf.placeholder(dtype=tf.float32, shape=[batch_size, input_dim], name='Target')
-decoder_input = tf.placeholder(dtype=tf.float32, shape=[1, z_dim], name='Decoder_input')
-
-
-def generate_image_grid(sess, op):
+def generate_image_grid(sess, decoder_input, op):
     """
     Generates a grid of images by passing a set of numbers to the decoder and getting its output.
     :param sess: Tensorflow Session required to get the decoder output
@@ -64,24 +54,6 @@ def generate_image_grid(sess, op):
         ax.set_yticks([])
         ax.set_aspect('auto')
     plt.show()
-
-
-def form_results(options):
-    """
-    Forms folders for each run to store the tensorboard files, saved models and the log files.
-    :return: three string pointing to tensorboard, saved models and log paths respectively.
-    """
-    folder_name = "/{0}_{1}_{2}_{3}_{4}_{5}_autoencoder". \
-        format(datetime.datetime.now(), z_dim, learning_rate, batch_size, n_epochs, beta1)
-    tensorboard_path = options.autoencoder_path + folder_name + '/Tensorboard'
-    saved_model_path = options.autoencoder_path + folder_name + '/Saved_models/'
-    log_path = options.autoencoder_path + folder_name + '/log'
-    if not os.path.exists(options.autoencoder_path + folder_name):
-        os.mkdir(options.autoencoder_path + folder_name)
-        os.mkdir(tensorboard_path)
-        os.mkdir(saved_model_path)
-        os.mkdir(log_path)
-    return tensorboard_path, saved_model_path, log_path
 
 
 def dense(x, n1, n2, name):
@@ -112,9 +84,9 @@ def encoder(x, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.name_scope('Encoder'):
-        e_dense_1 = tf.nn.relu(dense(x, input_dim, n_l1, 'e_dense_1'))
-        e_dense_2 = tf.nn.relu(dense(e_dense_1, n_l1, n_l2, 'e_dense_2'))
-        latent_variable = dense(e_dense_2, n_l2, z_dim, 'e_latent_variable')
+        e_dense_1 = tf.nn.relu(dense(x, input_dim, hidden_layer1, 'e_dense_1'))
+        e_dense_2 = tf.nn.relu(dense(e_dense_1, hidden_layer1, hidden_layer2, 'e_dense_2'))
+        latent_variable = dense(e_dense_2, hidden_layer2, options.z_dim, 'e_latent_variable')
         return latent_variable
 
 
@@ -128,18 +100,23 @@ def decoder(x, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.name_scope('Decoder'):
-        d_dense_1 = tf.nn.relu(dense(x, z_dim, n_l2, 'd_dense_1'))
-        d_dense_2 = tf.nn.relu(dense(d_dense_1, n_l2, n_l1, 'd_dense_2'))
-        output = tf.nn.sigmoid(dense(d_dense_2, n_l1, input_dim, 'd_output'))
+        d_dense_1 = tf.nn.relu(dense(x, options.z_dim, hidden_layer2, 'd_dense_1'))
+        d_dense_2 = tf.nn.relu(dense(d_dense_1, hidden_layer2, hidden_layer1, 'd_dense_2'))
+        output = tf.nn.sigmoid(dense(d_dense_2, hidden_layer1, input_dim, 'd_output'))
         return output
 
 
-def train(options, train_model):
+def train(options):
     """
     Used to train the autoencoder by passing in the necessary inputs.
     :param train_model: True -> Train the model, False -> Load the latest trained model and show the image grid.
     :return: does not return anything
     """
+    # Placeholders for input data and the targets
+    x_input = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Input')
+    x_target = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Target')
+    decoder_input = tf.placeholder(dtype=tf.float32, shape=[1, options.z_dim], name='Decoder_input')
+
     with tf.variable_scope(tf.get_variable_scope()):
         encoder_output = encoder(x_input)
         decoder_output = decoder(encoder_output)
@@ -151,7 +128,7 @@ def train(options, train_model):
     loss = tf.reduce_mean(tf.square(x_target - decoder_output))
 
     # Optimizer
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, beta1=beta1).minimize(loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate=options.learning_rate, beta1=options.beta1).minimize(loss)
     init = tf.global_variables_initializer()
 
     # Visualization
@@ -168,37 +145,43 @@ def train(options, train_model):
     step = 0
     with tf.Session() as sess:
         sess.run(init)
-        if train_model:
-            tensorboard_path, saved_model_path, log_path = form_results(options)
-            writer = tf.summary.FileWriter(logdir=tensorboard_path, graph=sess.graph)
-            for i in range(n_epochs):
-                n_batches = int(mnist.train.num_examples / batch_size)
+        if not options.run_inference:
+            writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
+            for i in range(options.epochs):
+                n_batches = int(mnist.train.num_examples / options.batch_size)
                 for b in range(n_batches):
-                    batch_x, _ = mnist.train.next_batch(batch_size)
+                    batch_x, _ = mnist.train.next_batch(options.batch_size)
                     sess.run(optimizer, feed_dict={x_input: batch_x, x_target: batch_x})
                     if b % 50 == 0:
                         batch_loss, summary = sess.run([loss, summary_op], feed_dict={x_input: batch_x, x_target: batch_x})
                         writer.add_summary(summary, global_step=step)
                         print("Loss: {}".format(batch_loss))
                         print("Epoch: {}, iteration: {}".format(i, b))
-                        with open(log_path + '/log.txt', 'a') as log:
+                        with open(options.logs_path + '/log.txt', 'a') as log:
                             log.write("Epoch: {}, iteration: {}\n".format(i, b))
                             log.write("Loss: {}\n".format(batch_loss))
                     step += 1
-                saver.save(sess, save_path=saved_model_path, global_step=step)
+                saver.save(sess, save_path=options.checkpoints_path, global_step=step)
             print("Model Trained!")
-            print("Tensorboard Path: {}".format(tensorboard_path))
-            print("Log Path: {}".format(log_path + '/log.txt'))
-            print("Saved Model Path: {}".format(saved_model_path))
+            print("Tensorboard Path: {}".format(options.tensorboard_path))
+            print("Log Path: {}".format(options.logs_path + '/log.txt'))
+            print("Saved Model Path: {}".format(checkpoints_path))
         else:
-            all_results = os.listdir(options.autoencoder_checkpoint)
-            all_results.sort()
-            saver.restore(sess,
-                          save_path=tf.train.latest_checkpoint(options.autoencoder_checkpoint + '/' + all_results[-1] + '/Saved_models/'))
-            generate_image_grid(sess, op=decoder_image)
+            print('Restoring latest saved TensorFlow model...')
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            cur_dir = dir_path.split('/')[-1]
+            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
+            sorted_experiments = sorted(experiments)
+            saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
+            generate_image_grid(sess, decoder_input, op=decoder_image)
 
 if __name__ == '__main__':
     check_tf_version()
     parser = set_config()
-    options = extend_options(parser)
-    train(options, train_model=False)
+    (options, args) = parser.parse_args()
+    if not options.run_inference:
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        cur_dir = dir_path.split('/')[-1]
+        options = extend_options(parser, cur_dir)
+
+    train(options)
