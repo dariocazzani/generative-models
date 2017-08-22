@@ -46,6 +46,7 @@ def extend_options(parser, project_name):
 
     # Make sure that folders and file exits logs.txt exists
     if not os.path.exists(experiment_folder):
+        subprocess.call(['mkdir','{}'.format(options.project_folder)])
         subprocess.call(['mkdir','{}'.format(options.experiment_folder)])
         subprocess.call(['mkdir','{}'.format(options.tensorboard_path)])
         subprocess.call(['mkdir','{}'.format(options.checkpoints_path)])
