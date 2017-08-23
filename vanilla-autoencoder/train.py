@@ -14,7 +14,6 @@ from helpers.misc import check_tf_version, extend_options
 import subprocess
 import tensorflow as tf
 import numpy as np
-import datetime
 import glob
 import os
 import matplotlib.pyplot as plt
@@ -25,7 +24,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets('./Data', one_hot=True)
 
 # Parameters
-input_dim = 784
+input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
 
@@ -88,7 +87,7 @@ def encoder(x, reuse=False):
         return latent_variable
 
 
-def decoder(x, reuse=False):
+def decoder(z, reuse=False):
     """
     Decoder part of the autoencoder
     :param x: input to the decoder
@@ -98,7 +97,7 @@ def decoder(x, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.name_scope('Decoder'):
-        d_linear_1 = tf.nn.relu(linear(x, hidden_layer2, 'd_linear_1'))
+        d_linear_1 = tf.nn.relu(linear(z, hidden_layer2, 'd_linear_1'))
         d_linear_2 = tf.nn.relu(linear(d_linear_1, hidden_layer1, 'd_linear_2'))
         output = tf.nn.sigmoid(linear(d_linear_2, input_dim, 'd_output'))
         return output
