@@ -28,25 +28,19 @@ input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
 
-def generate_image_grid(sess, decoder_input, op):
-    x_points = np.arange(0, 2, 1.5).astype(np.float32)
-    y_points = np.arange(0, 2, 1.5).astype(np.float32)
+def plot(samples):
+    fig = plt.figure(figsize=(4, 4))
+    gs = gridspec.GridSpec(4, 4)
+    gs.update(wspace=0.05, hspace=0.05)
 
-    nx, ny = len(x_points), len(y_points)
-    plt.subplot()
-    gs = gridspec.GridSpec(nx, ny, hspace=0.05, wspace=0.05)
-
-    for i, g in enumerate(gs):
-        z = np.concatenate(([x_points[int(i / ny)]], [y_points[int(i % nx)]]))
-        z = np.reshape(z, (1, 2))
-        x = sess.run(op, feed_dict={decoder_input: z})
-        ax = plt.subplot(g)
-        img = np.array(x.tolist()).reshape(28, 28)
-        ax.imshow(img, cmap='gray')
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_aspect('auto')
-    plt.show()
+    for i, sample in enumerate(samples):
+        ax = plt.subplot(gs[i])
+        plt.axis('off')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_aspect('equal')
+        plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
+    return fig
 
 def get_variables(shape, scope):
     xavier = tf.contrib.layers.xavier_initializer()
@@ -109,10 +103,8 @@ def train(options):
         x_input = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Input')
         input_images = tf.reshape(x_input, [-1, 28, 28, 1])
 
-    with tf.name_scope('Target'):
-        x_target = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Target')
-    with tf.name_scope('Decoder_input'):
-        decoder_input = tf.placeholder(dtype=tf.float32, shape=[1, options.z_dim], name='Decoder_input')
+    with tf.name_scope('Latent_variable'):
+        z = tf.placeholder(dtype=tf.float32, shape=[None, options.z_dim], name='Latent_variable')
 
     with tf.name_scope('Autoencoder'):
         with tf.variable_scope(tf.get_variable_scope()):
@@ -121,11 +113,11 @@ def train(options):
             generated_images = tf.reshape(decoder_output, [-1, 28, 28, 1])
 
     with tf.variable_scope(tf.get_variable_scope()):
-        decoder_image = decoder(decoder_input, reuse=True)
+        X_samples = decoder(z, reuse=True)
 
     # Loss - MSE
     with tf.name_scope('Loss'):
-        loss = tf.reduce_mean(tf.square(x_target - decoder_output))
+        loss = tf.reduce_mean(tf.square(x_input - decoder_output))
 
     # Optimizer
     train_op, grads_and_vars = AdamOptimizer(loss, options.learning_rate, options.beta1)
@@ -149,19 +141,28 @@ def train(options):
         if not options.run_inference:
             try:
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
+                if not os.path.exists('out/'):
+                    os.makedirs('out/')
                 for i in range(options.epochs):
                     n_batches = int(mnist.train.num_examples / options.batch_size)
                     for b in range(n_batches):
                         batch_x, _ = mnist.train.next_batch(options.batch_size)
-                        sess.run(train_op, feed_dict={x_input: batch_x, x_target: batch_x})
+                        sess.run(train_op, feed_dict={x_input: batch_x})
                         if b % 50 == 0:
-                            batch_loss, summary = sess.run([loss, summary_op], feed_dict={x_input: batch_x, x_target: batch_x})
+                            batch_loss, summary = sess.run([loss, summary_op], feed_dict={x_input: batch_x})
                             writer.add_summary(summary, global_step=step)
                             print("Loss: {}".format(batch_loss))
                             print("Epoch: {}, iteration: {}".format(i, b))
+
                             with open(options.logs_path + '/log.txt', 'a') as log:
                                 log.write("Epoch: {}, iteration: {}\n".format(i, b))
                                 log.write("Loss: {}\n".format(batch_loss))
+
+                            samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
+                            fig = plot(samples)
+                            plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
+                            plt.close(fig)
+
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
                 print("Model Trained!")
@@ -180,7 +181,12 @@ def train(options):
             sorted_experiments = sorted(experiments)
             if len(experiments) > 0:
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
-                generate_image_grid(sess, decoder_input, op=decoder_image)
+
+                samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
+                fig = plot(samples)
+                plt.show()
+                # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
+                plt.close(fig)
             else:
                 print('No checkpoint found at {}'.format(os.path.join(options.MAIN_PATH, cur_dir)))
 
