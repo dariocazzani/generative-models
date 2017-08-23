@@ -42,7 +42,6 @@ def plot(samples):
         ax.set_yticklabels([])
         ax.set_aspect('equal')
         plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
-
     return fig
 
 def get_variables(shape, scope):
@@ -157,7 +156,6 @@ def train(options):
                         writer.add_summary(summary, global_step=step)
                         print("Loss: {}".format(batch_loss))
                         print("Epoch: {}, iteration: {}".format(i, b))
-                        print()
 
                         samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
 
