@@ -21,7 +21,7 @@ from matplotlib import gridspec
 from tensorflow.examples.tutorials.mnist import input_data
 
 # Get the MNIST data
-mnist = input_data.read_data_sets('./Data', one_hot=True)
+mnist = input_data.read_data_sets('../Data', one_hot=True)
 
 # Parameters
 input_dim = mnist.train.images.shape[1]
