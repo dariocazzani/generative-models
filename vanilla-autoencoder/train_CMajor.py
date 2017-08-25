@@ -15,11 +15,7 @@ from helpers.graph import get_variables, linear, AdamOptimizer
 import subprocess
 import tensorflow as tf
 import numpy as np
-import glob
 import os
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
-from tensorflow.examples.tutorials.mnist import input_data
 
 from helpers.data_dispatcher import CMajorScaleDistribution
 
