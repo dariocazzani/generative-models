@@ -9,8 +9,12 @@ Authors:    Dario Cazzani
 
 import numpy as np
 import random
-from helpers.signal_processing import floats_to_wav
+from signal_processing import floats_to_wav, wav_to_floats
 import sys
+sys.path.append('../')
+from config import set_config
+import glob
+
 
 def CMajorScaleDistribution(batch_size):
     sample_rate = 16000
@@ -34,17 +38,49 @@ def CMajorScaleDistribution(batch_size):
                 noisy_sound = sounds + 0.08 * np.asarray(noise)
                 batch.append(noisy_sound)
             for i in range(np.minimum(5, batch_size)):
-                floats_to_wav('real_sample_{}.wav'.format(i), batch[i], 16000)
+                floats_to_wav('real_sample_{}.wav'.format(i), batch[i], sample_rate)
             yield np.asarray(batch)
 
         except Exception as e:
             print('Could not produce batch of sinusoids because: {}'.format(e))
             sys.exit()
 
+class NSynthGenerator(object):
+    def __init__(self, audiofiles, batch_size):
+        self.audiofiles = audiofiles
+        self.batch_size = batch_size
+        self.__generate_random_access_idx()
+        self.audio_length = 64000 #samples
+        self.batch = np.zeros((self.batch_size, self.audio_length))
+
+    def __iter__(self):
+        return self
+
+    def __generate_random_access_idx(self):
+        self.random_access_idx = np.random.permutation(len(self.audiofiles))[:self.batch_size]
+
+    def __load(self):
+        for idx, el in enumerate(list(self.random_access_idx)):
+            # load random audio file
+            filename = self.audiofiles[int(el)]
+            audio, rate = wav_to_floats(filename)
+            assert(len(audio) >= self.audio_length)
+            self.batch[idx, :] = audio[:self.audio_length]
+
+    def __next__(self):
+        while True:
+            self.__generate_random_access_idx()
+            self.__load()
+            return self.batch
+
 def main():
     data = CMajorScaleDistribution(32)
+    parser = set_config()
+    (options, args) = parser.parse_args()
+    audiofiles = glob.glob(options.DATA_PATH + '/nsynth-test/audio/*wav')
+    nsynth = NSynthGenerator(audiofiles, 32)
     batch = data.__next__()
-    # batch = data.next()
+    batch = nsynth.__next__()
     print(batch.shape)
 
 if __name__ == '__main__':
