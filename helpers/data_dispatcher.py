@@ -9,9 +9,9 @@ Authors:    Dario Cazzani
 
 import numpy as np
 import random
-from signal_processing import floats_to_wav, wav_to_floats
 import sys
 sys.path.append('../')
+from helpers.signal_processing import floats_to_wav, wav_to_floats
 from config import set_config
 import glob
 
@@ -21,7 +21,7 @@ def CMajorScaleDistribution(batch_size):
     seconds = 1
     t = np.linspace(0, seconds, sample_rate*seconds)  # 16000 Hz sampling rate
     C_major_scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]
-    num_notes = 4
+    num_notes = 5
     note_length = int(sample_rate * seconds / num_notes)
     while True:
         try:
@@ -37,8 +37,8 @@ def CMajorScaleDistribution(batch_size):
                 noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
                 noisy_sound = sounds + 0.08 * np.asarray(noise)
                 batch.append(noisy_sound)
-            for i in range(np.minimum(5, batch_size)):
-                floats_to_wav('real_sample_{}.wav'.format(i), batch[i], sample_rate)
+            # for i in range(np.minimum(5, batch_size)):
+            #     floats_to_wav('real_sample_{}.wav'.format(i), batch[i], sample_rate)
             yield np.asarray(batch)
 
         except Exception as e:
@@ -50,7 +50,7 @@ class NSynthGenerator(object):
         self.audiofiles = audiofiles
         self.batch_size = batch_size
         self.__generate_random_access_idx()
-        self.audio_length = 64000 #samples
+        self.audio_length = 16000 #samples
         self.batch = np.zeros((self.batch_size, self.audio_length))
 
     def __iter__(self):
@@ -62,7 +62,7 @@ class NSynthGenerator(object):
     def __load(self):
         for idx, el in enumerate(list(self.random_access_idx)):
             # load random audio file
-            filename = self.audiofiles[int(el)]
+            filename = self.audiofiles[el]
             audio, rate = wav_to_floats(filename)
             assert(len(audio) >= self.audio_length)
             self.batch[idx, :] = audio[:self.audio_length]
