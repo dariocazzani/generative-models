@@ -7,10 +7,9 @@ from __future__ import print_function
 Authors:    Dario Cazzani
 """
 
-
 import numpy as np
 import random
-from signal_processing import floats_to_wav
+from helpers.signal_processing import floats_to_wav
 import sys
 
 def CMajorScaleDistribution(batch_size):
