@@ -16,13 +16,14 @@ import subprocess
 import tensorflow as tf
 import numpy as np
 import os
+import glob
 
-from helpers.data_dispatcher import CMajorScaleDistribution
+from helpers.data_dispatcher import CMajorScaleDistribution, NSynthGenerator
 
 # Parameters
-input_dim = 1600
-num_frames = 10
-hidden_layer = 512
+input_dim = 200
+num_frames = 80
+hidden_layer = 256
 
 # The autoencoder network
 def encoder(x, reuse=False):
@@ -30,7 +31,8 @@ def encoder(x, reuse=False):
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Encoder'):
         e_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        e_cells = tf.contrib.rnn.MultiRNNCell([e_cell1])
+        e_cell2 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
+        e_cells = tf.contrib.rnn.MultiRNNCell([e_cell1, e_cell2])
         outputs, _ = tf.contrib.rnn.static_rnn(e_cells, x, dtype=tf.float32)
         latent_variable = linear(outputs[-1], options.z_dim, 'e_latent_variable')
         return latent_variable
@@ -42,8 +44,9 @@ def decoder(z, reuse=False):
         rnn_input = []
         for _ in range(num_frames):
             rnn_input.append(z)
-        d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
-        d_cells = tf.contrib.rnn.MultiRNNCell([d_cell1])
+        d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
+        d_cell2 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
+        d_cells = tf.contrib.rnn.MultiRNNCell([d_cell2])
         outputs, _ = tf.contrib.rnn.static_rnn(d_cells, rnn_input, dtype=tf.float32)
         logits = tf.stack(outputs, axis=1, name='logits')
         logits_reshaped = tf.reshape(logits, [-1, num_frames * input_dim])
@@ -52,7 +55,9 @@ def decoder(z, reuse=False):
 
 
 def train(options):
+    audiofiles = glob.glob(options.DATA_PATH + '/nsynth-test/audio/*wav')
     data = CMajorScaleDistribution(options.batch_size)
+    # data = NSynthGenerator(audiofiles, options.batch_size)
 
     # Placeholders for input data and the targets
     with tf.name_scope('Input'):
@@ -106,7 +111,7 @@ def train(options):
 
                     batch_x = data.__next__()
                     sess.run(train_op, feed_dict={X: batch_x})
-                    if i % 5 == 0:
+                    if i % 10 == 0:
                         batch_loss, summary = sess.run([loss, summary_op], feed_dict={X: batch_x})
                         writer.add_summary(summary, global_step=step)
                         print("Epoch: {} - Loss: {}\n".format(i, batch_loss))
@@ -117,7 +122,7 @@ def train(options):
                         saver.save(sess, save_path=options.checkpoints_path, global_step=step)
 
                     step += 1
-                    saver.save(sess, save_path=options.checkpoints_path, global_step=step)
+
                 print("Model Trained!")
                 print("Tensorboard Path: {}".format(options.tensorboard_path))
                 print("Log Path: {}".format(options.logs_path + '/log.txt'))
