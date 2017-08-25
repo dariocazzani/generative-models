@@ -2,6 +2,7 @@
 export MAIN_PATH="/share/generative-models"
 export DATA_PATH="/share/generative-models/Data/"
 sudo mkdir -p $DATA_PATH
+sudo mkdir -p $MAIN_PATH
 
 echo "Downloading NSynth-test audio files if not present yet"
 CURDIR=$PWD
@@ -20,6 +21,7 @@ GPU=0 nvidia-docker run --privileged --rm -it \
   --env DISPLAY=$DISPLAY \
   --env="QT_X11_NO_MITSHM=1" \
   -e MAIN_PATH=$MAIN_PATH \
+  -e DATA_PATH=$DATA_PATH \
   -v /dev/video0:/dev/video0 \
   -v /dev/video1:/dev/video1 \
   -v /tmp/.X11-unix:/tmp/.X11-unix:ro  \
