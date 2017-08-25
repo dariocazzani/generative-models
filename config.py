@@ -7,6 +7,8 @@ def set_config():
 
     parser.add_option("--MAIN_PATH",            default='{}'.format(os.getenv("MAIN_PATH")),
                             type=str,           help="Log, saved models and tensorboard for the autoencoder")
+    parser.add_option("--DATA_PATH",            default='{}'.format(os.getenv("DATA_PATH")),
+                            type=str,           help='Store Data')
     parser.add_option("--z_dim",                default=2,
                             type=int,           help="Latent Variable Dimensions")
     parser.add_option("--batch_size",           default=128,
