@@ -29,9 +29,18 @@ input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
 
-def plot(samples):
-    fig = plt.figure(figsize=(4, 4))
-    gs = gridspec.GridSpec(4, 4)
+def plot(sess, z, X_samples, num_images):
+    samples = []
+    n = 15
+    grid_x = np.linspace(-2, 2, n)
+    grid_y = np.linspace(-2, 2, n)
+    for i, yi in enumerate(grid_x):
+        for j, xi in enumerate(grid_y):
+            z_sample = np.array([[xi, yi]])
+            samples.append(sess.run(X_samples, feed_dict={z: z_sample}))
+
+    fig = plt.figure(figsize=(8, 8))
+    gs = gridspec.GridSpec(num_images, num_images)
     gs.update(wspace=0.05, hspace=0.05)
 
     for i, sample in enumerate(samples):
@@ -126,9 +135,8 @@ def train(options):
                                 log.write("Epoch: {}, iteration: {}\n".format(i, b))
                                 log.write("Loss: {}\n".format(batch_loss))
 
-                            samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
-                            fig = plot(samples)
-                            plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
+                            fig = plot(sess, z, X_samples, num_images=15)
+                            plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
                             plt.close(fig)
 
                         step += 1
@@ -149,9 +157,7 @@ def train(options):
             sorted_experiments = sorted(experiments)
             if len(experiments) > 0:
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
-
-                samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
-                fig = plot(samples)
+                fig = plot(sess, z, X_samples, num_images=15)
                 plt.show()
                 # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
                 plt.close(fig)

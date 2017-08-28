@@ -29,9 +29,18 @@ input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
 
-def plot(samples):
-    fig = plt.figure(figsize=(4, 4))
-    gs = gridspec.GridSpec(4, 4)
+def plot(sess, z, X_samples, num_images):
+    samples = []
+    n = 15
+    grid_x = np.linspace(-2, 2, n)
+    grid_y = np.linspace(-2, 2, n)
+    for i, yi in enumerate(grid_x):
+        for j, xi in enumerate(grid_y):
+            z_sample = np.array([[xi, yi]])
+            samples.append(sess.run(X_samples, feed_dict={z: z_sample}))
+
+    fig = plt.figure(figsize=(8, 8))
+    gs = gridspec.GridSpec(num_images, num_images)
     gs.update(wspace=0.05, hspace=0.05)
 
     for i, sample in enumerate(samples):
@@ -120,28 +129,27 @@ def train(options):
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
                 if not os.path.exists('out/'):
                     os.makedirs('out/')
-                for i in range(options.epochs):
+                for epoch in range(options.epochs):
                     n_batches = int(mnist.train.num_examples / options.batch_size)
-                    for b in range(n_batches):
+                    for iteration in range(n_batches):
                         batch_x, _ = mnist.train.next_batch(options.batch_size)
 
                         # Train
                         sess.run(train_op, feed_dict={X: batch_x})
 
-                        if b % 50 == 0:
+                        if iteration % 50 == 0:
                             summary, batch_loss = sess.run([summary_op, vae_loss], feed_dict={X: batch_x})
                             writer.add_summary(summary, global_step=step)
                             print("Loss: {}".format(batch_loss))
-                            print("Epoch: {}, iteration: {}".format(i, b))
+                            print("Epoch: {}, iteration: {}".format(epoch, iteration))
 
                             with open(options.logs_path + '/log.txt', 'a') as log:
-                                log.write("Epoch: {}, iteration: {}\n".format(i, b))
+                                log.write("Epoch: {}, iteration: {}\n".format(epoch, iteration))
                                 log.write("Loss: {}\n".format(batch_loss))
 
-                            samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
-
-                            fig = plot(samples)
-                            plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
+                            fig = plot(sess, z, X_samples, num_images=15)
+                            fig = plot(sess, z, X_samples, num_images=15)
+                            plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
                             plt.close(fig)
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
@@ -162,9 +170,7 @@ def train(options):
             sorted_experiments = sorted(experiments)
             if len(experiments) > 0:
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
-
-                samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
-                fig = plot(samples)
+                fig = plot(sess, z, X_samples, num_images=15)
                 plt.show()
                 # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
                 plt.close(fig)
