@@ -148,7 +148,7 @@ def train(options):
             experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
             sorted_experiments = sorted(experiments)
             if len(experiments) > 0:
-                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
+                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
 
                 samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
                 fig = plot(samples)

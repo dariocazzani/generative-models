@@ -161,7 +161,7 @@ def train(options):
             experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
             sorted_experiments = sorted(experiments)
             if len(experiments) > 0:
-                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
+                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
 
                 samples = sess.run(X_samples, feed_dict={z: np.random.randn(16, options.z_dim)})
                 fig = plot(samples)
@@ -180,5 +180,5 @@ if __name__ == '__main__':
         cur_dir = dir_path.split('/')[-1]
         script_name = os.path.basename(__file__).split('.')[0]
         options = extend_options(parser, cur_dir, script_name)
-    x_input = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Input')
+
     train(options)
