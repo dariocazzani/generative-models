@@ -11,6 +11,7 @@ sys.path.append('../')
 from config import set_config
 from helpers.misc import check_tf_version, extend_options
 from helpers.graph import get_variables, linear, AdamOptimizer
+from helpers.signal_processing import floats_to_wav
 
 import subprocess
 import tensorflow as tf
@@ -21,8 +22,8 @@ import glob
 from helpers.data_dispatcher import CMajorScaleDistribution, NSynthGenerator
 
 # Parameters
-input_dim = 200
-num_frames = 80
+input_dim = 800
+num_frames = 20
 hidden_layer = 256
 
 # The autoencoder network
@@ -133,7 +134,17 @@ def train(options):
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
             print('Restoring latest saved TensorFlow model...')
-            raise NotImplementedError("Todo")
+            dir_path = os.path.dirname(os.path.realpath(__file__))
+            cur_dir = dir_path.split('/')[-1]
+            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
+            sorted_experiments = sorted(experiments)
+            if len(experiments) > 0:
+                print('Restoring: {}'.format(sorted_experiments[-1]))
+                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
+                z_ = np.asarray([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.], [0., 0.]])
+                samples = sess.run(X_samples, feed_dict={z: z_})
+                for idx, sample in enumerate(list(samples)):
+                    floats_to_wav('out/{}.wav'.format(list(z_)[idx]), sample, 16000)
 
 if __name__ == '__main__':
     check_tf_version()
