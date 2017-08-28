@@ -22,7 +22,7 @@ def extend_options(parser, project_name, script_name):
 
     project_folder = '{}/{}'.format(options.MAIN_PATH, project_name)
     experiment_name = '{}'.format(str(uuid.uuid4().hex)[4:])
-    experiment_folder = '{}/script_name_{}'.format(project_folder, experiment_name)
+    experiment_folder = '{}/{}_{}'.format(project_folder, script_name, experiment_name)
 
     parser.add_option("--project_folder",       dest="project_folder",
                         default='{}'.format(project_folder),                type='string')
