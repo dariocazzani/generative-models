@@ -165,6 +165,7 @@ if __name__ == '__main__':
     if not options.run_inference:
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cur_dir = dir_path.split('/')[-1]
-        options = extend_options(parser, cur_dir)
+        script_name = os.path.basename(__file__).split('.')[0]
+        options = extend_options(parser, cur_dir, script_name)
 
     train(options)

@@ -17,12 +17,12 @@ def progress(count, total, suffix=''):
 def get_git_revision_short_hash():
     return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
 
-def extend_options(parser, project_name):
+def extend_options(parser, project_name, script_name):
     (options, args) = parser.parse_args()
 
     project_folder = '{}/{}'.format(options.MAIN_PATH, project_name)
     experiment_name = '{}'.format(str(uuid.uuid4().hex)[4:])
-    experiment_folder = '{}/{}'.format(project_folder, experiment_name)
+    experiment_folder = '{}/script_name_{}'.format(project_folder, experiment_name)
 
     parser.add_option("--project_folder",       dest="project_folder",
                         default='{}'.format(project_folder),                type='string')
