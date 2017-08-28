@@ -11,7 +11,7 @@ import numpy as np
 import random
 import sys
 sys.path.append('../')
-from helpers.signal_processing import floats_to_wav, wav_to_floats
+from helpers.signal_processing import wav_to_floats
 from config import set_config
 import glob
 
@@ -37,8 +37,7 @@ def CMajorScaleDistribution(batch_size):
                 noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
                 noisy_sound = sounds + 0.08 * np.asarray(noise)
                 batch.append(noisy_sound)
-            # for i in range(np.minimum(5, batch_size)):
-            #     floats_to_wav('real_sample_{}.wav'.format(i), batch[i], sample_rate)
+
             yield np.asarray(batch)
 
         except Exception as e:
