@@ -44,6 +44,34 @@ def CMajorScaleDistribution(batch_size):
             print('Could not produce batch of sinusoids because: {}'.format(e))
             sys.exit()
 
+def SinusoidDistribution(batch_size):
+    sample_rate = 16000
+    seconds = 1
+    t = np.linspace(0, seconds, sample_rate*seconds)  # 16000 Hz sampling rate
+    num_notes = 1
+    note_length = int(sample_rate * seconds / num_notes)
+    while True:
+        try:
+            batch = []
+            for i in range(batch_size):
+                # select random note
+                sounds = []
+                for note in range(num_notes):
+                    pitch = np.floor(np.random.rand()*1000) + 500.
+                    sound = np.sin(2*np.pi*t[:note_length]*pitch)
+                    sounds.append(sound)
+                sounds = np.concatenate(sounds).ravel()
+                noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
+                noisy_sound = sounds + 0.08 * np.asarray(noise)
+                batch.append(noisy_sound)
+
+            yield np.asarray(batch)
+
+        except Exception as e:
+            print('Could not produce batch of sinusoids because: {}'.format(e))
+            sys.exit()
+
+
 class NSynthGenerator(object):
     def __init__(self, audiofiles, batch_size):
         self.audiofiles = audiofiles
