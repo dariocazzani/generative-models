@@ -21,7 +21,7 @@ def CMajorScaleDistribution(batch_size):
     seconds = 1
     t = np.linspace(0, seconds, sample_rate*seconds)  # 16000 Hz sampling rate
     C_major_scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]
-    num_notes = 5
+    num_notes = 1
     note_length = int(sample_rate * seconds / num_notes)
     while True:
         try:
