@@ -21,6 +21,7 @@ def CMajorScaleDistribution(batch_size):
     seconds = 1
     t = np.linspace(0, seconds, sample_rate*seconds)  # 16000 Hz sampling rate
     C_major_scale = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]
+    intensities = np.linspace(0.2, 1., 9)
     num_notes = 1
     note_length = int(sample_rate * seconds / num_notes)
     while True:
@@ -31,11 +32,14 @@ def CMajorScaleDistribution(batch_size):
                 sounds = []
                 for note in range(num_notes):
                     pitch = C_major_scale[np.random.randint(len(C_major_scale))]
+                    intensity = intensities[np.random.randint(len(intensities))]
                     sound = np.sin(2*np.pi*t[:note_length]*pitch)
-                    sounds.append(sound)
+                    noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
+                    noisy_sound = sound + 0.08 * np.asarray(noise)
+                    noisy_sound *= intensity
+                    sounds.append(noisy_sound)
                 sounds = np.concatenate(sounds).ravel()
-                noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
-                noisy_sound = sounds + 0.08 * np.asarray(noise)
+
                 batch.append(noisy_sound)
 
             yield np.asarray(batch)
