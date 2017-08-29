@@ -19,12 +19,12 @@ import numpy as np
 import os
 import glob
 
-from helpers.data_dispatcher import CMajorScaleDistribution, NSynthGenerator
+from helpers.data_dispatcher import CMajorScaleDistribution, NSynthGenerator, SinusoidDistribution
 
 # Parameters
-input_dim = 800
-num_frames = 20
-hidden_layer = 256
+input_dim = 1600
+num_frames = 10
+hidden_layer = 512
 
 # The autoencoder network
 def encoder(x, reuse=False):
@@ -32,8 +32,7 @@ def encoder(x, reuse=False):
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Encoder'):
         e_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        e_cell2 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        e_cells = tf.contrib.rnn.MultiRNNCell([e_cell1, e_cell2])
+        e_cells = tf.contrib.rnn.MultiRNNCell([e_cell1])
         outputs, _ = tf.contrib.rnn.static_rnn(e_cells, x, dtype=tf.float32)
         latent_variable = linear(outputs[-1], options.z_dim, 'e_latent_variable')
         return latent_variable
@@ -45,9 +44,8 @@ def decoder(z, reuse=False):
         rnn_input = []
         for _ in range(num_frames):
             rnn_input.append(z)
-        d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        d_cell2 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
-        d_cells = tf.contrib.rnn.MultiRNNCell([d_cell2])
+        d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
+        d_cells = tf.contrib.rnn.MultiRNNCell([d_cell1])
         outputs, _ = tf.contrib.rnn.static_rnn(d_cells, rnn_input, dtype=tf.float32)
         logits = tf.stack(outputs, axis=1, name='logits')
         logits_reshaped = tf.reshape(logits, [-1, num_frames * input_dim])
@@ -112,14 +110,13 @@ def train(options):
 
                     batch_x = data.__next__()
                     sess.run(train_op, feed_dict={X: batch_x})
-                    if i % 10 == 0:
+                    if i % 50 == 0:
                         batch_loss, summary = sess.run([loss, summary_op], feed_dict={X: batch_x})
                         writer.add_summary(summary, global_step=step)
                         print("Epoch: {} - Loss: {}\n".format(i, batch_loss))
                         with open(options.logs_path + '/log.txt', 'a') as log:
                             log.write("Epoch: {} - Loss: {}\n".format(i, batch_loss))
 
-                        samples = sess.run(X_samples, feed_dict={z: np.random.randn(1, options.z_dim)})
                         saver.save(sess, save_path=options.checkpoints_path, global_step=step)
 
                     step += 1
@@ -136,15 +133,27 @@ def train(options):
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]
-            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
-            sorted_experiments = sorted(experiments)
+            script_name = os.path.basename(__file__).split('.')[0]
+            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/{}*'.format(script_name))
+            experiments.sort(key=lambda x: os.path.getmtime(x))
             if len(experiments) > 0:
-                print('Restoring: {}'.format(sorted_experiments[-1]))
-                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
-                z_ = np.asarray([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.], [0., 0.]])
-                samples = sess.run(X_samples, feed_dict={z: z_})
+                print('Restoring: {}'.format(experiments[-1]))
+                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
+
+                samples = []
+                n = 5
+                z_ = []
+                grid_x = np.linspace(-2, 2, n)
+                grid_y = np.linspace(-2, 2, n)
+                for i, yi in enumerate(grid_x):
+                    for j, xi in enumerate(grid_y):
+                        z_sample = np.array([[xi, yi]])
+                        z_.append(z_sample)
+
+                samples = (sess.run(X_samples, feed_dict={z: np.squeeze(np.asarray(z_))}))
+
                 for idx, sample in enumerate(list(samples)):
-                    floats_to_wav('out/{}.wav'.format(list(z_)[idx]), sample, 16000)
+                    floats_to_wav('out/{}.wav'.format(z_[idx]), sample.flatten(), 16000)
 
 if __name__ == '__main__':
     check_tf_version()
