@@ -166,10 +166,12 @@ def train(options):
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]
-            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/*')
-            sorted_experiments = sorted(experiments)
+            script_name = os.path.basename(__file__).split('.')[0]
+            experiments = glob.glob(os.path.join(options.MAIN_PATH, cur_dir) + '/{}*'.format(script_name))
+            experiments.sort(key=lambda x: os.path.getmtime(x))
             if len(experiments) > 0:
-                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(sorted_experiments[-1], 'checkpoints')))
+                print('Restoring: {}'.format(experiments[-1]))
+                saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
                 fig = plot(sess, z, X_samples, num_images=15)
                 plt.show()
                 # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
