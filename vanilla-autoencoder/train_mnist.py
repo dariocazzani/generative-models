@@ -134,10 +134,10 @@ def train(options):
                             with open(options.logs_path + '/log.txt', 'a') as log:
                                 log.write("Epoch: {}, iteration: {}\n".format(i, b))
                                 log.write("Loss: {}\n".format(batch_loss))
-
-                            fig = plot(sess, z, X_samples, num_images=15)
-                            plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
-                            plt.close(fig)
+                            if options.save_plots:
+                                fig = plot(sess, z, X_samples, num_images=15)
+                                plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
+                                plt.close(fig)
 
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
