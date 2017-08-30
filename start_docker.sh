@@ -11,6 +11,7 @@ sudo wget -t 45 -nc http://download.magenta.tensorflow.org/datasets/nsynth/nsynt
 
 # decompress and keep original files
 if [ ! -d "$DATA_PATH/nsynth-test" ]; then
+  echo "untar nsynth-test.jsonwav.tar.gz"
   sudo tar -zxvf nsynth-test.jsonwav.tar.gz
 fi
 
