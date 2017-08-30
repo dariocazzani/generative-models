@@ -35,7 +35,8 @@ def CMajorScaleDistribution(batch_size):
                     intensity = intensities[np.random.randint(len(intensities))]
                     sound = np.sin(2*np.pi*t[:note_length]*pitch)
                     noise = [random.gauss(0.0, 1.0) for i in range(sample_rate*seconds)]
-                    noisy_sound = sound + 0.08 * np.asarray(noise)
+                    noise_level = np.random.rand()*0.09 + 0.01
+                    noisy_sound = sound + noise_level * np.asarray(noise)
                     noisy_sound *= intensity
                     sounds.append(noisy_sound)
                 sounds = np.concatenate(sounds).ravel()
