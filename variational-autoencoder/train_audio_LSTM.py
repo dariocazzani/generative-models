@@ -32,10 +32,12 @@ def encoder(x, reuse=False):
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Encoder'):
         e_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        e_cells = tf.contrib.rnn.MultiRNNCell([e_cell1])
-        outputs, _ = tf.contrib.rnn.static_rnn(e_cells, x, dtype=tf.float32)
-        z_mu = linear(outputs[-1], options.z_dim, 'z_mu')
-        z_logvar = linear(outputs[-1], options.z_dim, 'z_logvar')
+        # e_cells = tf.contrib.rnn.RNNCell(e_cell1)
+        _, states = tf.contrib.rnn.static_rnn(e_cell1, x, dtype=tf.float32)
+        state_c, state_h = states
+        hidden_state = tf.concat([state_c, state_h], 1)
+        z_mu = linear(hidden_state, options.z_dim, 'z_mu')
+        z_logvar = linear(hidden_state, options.z_dim, 'z_logvar')
         return z_mu, z_logvar
 
 def sample_z(mu, log_var):
@@ -87,9 +89,8 @@ def train(options):
     # Loss - MSE
     with tf.name_scope('Loss'):
         # E[log P(X|z)]
-        normalized_logits = tf.div(tf.add(logits, 1.), 2.)
         normalized_X = tf.div(tf.add(X, 1.), 2.)
-        reconstruction_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=normalized_logits, labels=normalized_X), 1)
+        reconstruction_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=normalized_X), 1)
         # D_KL(Q(z|X) || P(z|X)); calculate in closed form as both dist. are Gaussian
         kl_loss = 0.5 * tf.reduce_sum(tf.exp(z_logvar) + z_mu**2 - 1. - z_logvar, 1)
         # VAE loss
@@ -156,10 +157,10 @@ def train(options):
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
 
                 samples = []
-                n = 5
+                n = 10
                 z_ = []
-                grid_x = np.linspace(-2, 2, n)
-                grid_y = np.linspace(-2, 2, n)
+                grid_x = np.linspace(-1, 1, n)
+                grid_y = np.linspace(-1, 1, n)
                 for i, yi in enumerate(grid_x):
                     for j, xi in enumerate(grid_y):
                         z_.append(np.array([[xi, yi]]))
