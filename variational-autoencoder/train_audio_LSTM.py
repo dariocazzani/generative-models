@@ -49,13 +49,23 @@ def decoder(z, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Decoder'):
-        rnn_input = []
+        lstm_cell = tf.nn.rnn_cell.LSTMCell(input_dim, state_is_tuple=False)
+        expanded_z = tf.nn.relu(linear(z, input_dim*2, 'linear_expand_z'))
+        output, state = lstm_cell(expanded_z[:, :input_dim], expanded_z)
+        outputs = []
+        print(state.get_shape())
+        print(output.get_shape())
         for _ in range(num_frames):
-            rnn_input.append(z)
-        d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
-        d_cells = tf.contrib.rnn.MultiRNNCell([d_cell1])
-        outputs, _ = tf.contrib.rnn.static_rnn(d_cells, rnn_input, dtype=tf.float32)
+            output, state = lstm_cell(output, state)
+            outputs.append(output)
+        # rnn_input = []
+        # for _ in range(num_frames):
+        #     rnn_input.append(z)
+        # d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
+        # # d_cells = tf.contrib.rnn.MultiRNNCell([d_cell1])
+        # outputs, _ = tf.contrib.rnn.static_rnn(d_cells, rnn_input, dtype=tf.float32)
         logits = tf.stack(outputs, axis=1, name='logits')
+        print(logits.get_shape())
         logits_reshaped = tf.reshape(logits, [-1, num_frames * input_dim])
         out = tf.nn.tanh(logits_reshaped)
         return out, logits_reshaped
