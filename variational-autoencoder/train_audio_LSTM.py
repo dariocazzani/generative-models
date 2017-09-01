@@ -24,15 +24,17 @@ from helpers.data_dispatcher import CMajorScaleDistribution, NSynthGenerator, Si
 # Parameters
 input_dim = 1600
 num_frames = 10
-hidden_layer = 512
+frame_length = 480
+frame_step = 160
+fft_length= 512
+hidden_layer = 128
 
 # Q(z|X)
 def encoder(x, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Encoder'):
-        e_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(hidden_layer)
-        # e_cells = tf.contrib.rnn.RNNCell(e_cell1)
+        e_cell1 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
         _, states = tf.contrib.rnn.static_rnn(e_cell1, x, dtype=tf.float32)
         state_c, state_h = states
         hidden_state = tf.concat([state_c, state_h], 1)
@@ -45,27 +47,25 @@ def sample_z(mu, log_var):
     return mu + tf.exp(log_var / 2) * eps
 
 # P(X|z)
-def decoder(z, reuse=False):
+def decoder(z, inputs=None, reuse=False):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Decoder'):
         lstm_cell = tf.nn.rnn_cell.LSTMCell(input_dim, state_is_tuple=False)
         expanded_z = tf.nn.relu(linear(z, input_dim*2, 'linear_expand_z'))
-        output, state = lstm_cell(expanded_z[:, :input_dim], expanded_z)
+        first_input = tf.add(tf.zeros_like(expanded_z[:, :input_dim]), 1.)
+        output, state = lstm_cell(first_input, expanded_z)
         outputs = []
-        print(state.get_shape())
-        print(output.get_shape())
-        for _ in range(num_frames):
-            output, state = lstm_cell(output, state)
+        outputs.append(output)
+        for i in range(num_frames-1):
+            # Training
+            if inputs:
+                output, state = lstm_cell(inputs[i], state)
+            else:
+                output, state = lstm_cell(output, state)
             outputs.append(output)
-        # rnn_input = []
-        # for _ in range(num_frames):
-        #     rnn_input.append(z)
-        # d_cell1 = tf.contrib.rnn.LayerNormBasicLSTMCell(input_dim)
-        # # d_cells = tf.contrib.rnn.MultiRNNCell([d_cell1])
-        # outputs, _ = tf.contrib.rnn.static_rnn(d_cells, rnn_input, dtype=tf.float32)
+
         logits = tf.stack(outputs, axis=1, name='logits')
-        print(logits.get_shape())
         logits_reshaped = tf.reshape(logits, [-1, num_frames * input_dim])
         out = tf.nn.tanh(logits_reshaped)
         return out, logits_reshaped
@@ -83,7 +83,6 @@ def train(options):
         # Unstack to get a list of 'num_frames' tensors of shape (batch_size, input_dim)
         X_list = tf.unstack(X_reshaped, num_frames, 1)
 
-
     with tf.name_scope('Latent_variable'):
         z = tf.placeholder(dtype=tf.float32, shape=[None, options.z_dim], name='Latent_variable')
 
@@ -91,12 +90,12 @@ def train(options):
         with tf.variable_scope(tf.get_variable_scope()):
             z_mu, z_logvar = encoder(X_list)
             z_sample = sample_z(z_mu, z_logvar)
-            decoder_output, logits = decoder(z_sample)
+            decoder_output, logits = decoder(z_sample, inputs=None)
 
     with tf.variable_scope(tf.get_variable_scope()):
-        X_samples = decoder(z, reuse=True)
+        X_samples, _ = decoder(z, reuse=True)
 
-    # Loss - MSE
+    # Loss
     with tf.name_scope('Loss'):
         # E[log P(X|z)]
         normalized_X = tf.div(tf.add(X, 1.), 2.)
@@ -117,6 +116,7 @@ def train(options):
 
     for grad, var in grads_and_vars:
         tf.summary.histogram(var.name + '/gradient', grad)
+        tf.summary.histogram(var.name + '/value', var)
 
     tf.summary.audio(name='Input Sounds', tensor=X, sample_rate = 16000, max_outputs=3)
     tf.summary.audio(name='Generated Sounds', tensor=decoder_output, sample_rate = 16000, max_outputs=3)
@@ -130,8 +130,6 @@ def train(options):
         if not options.run_inference:
             try:
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
-                if not os.path.exists('out/'):
-                    os.makedirs('out/')
                 for i in range(options.epochs):
 
                     batch_x = data.__next__()
@@ -156,6 +154,9 @@ def train(options):
                 print("Saved Model Path: {}".format(options.checkpoints_path))
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
+            if not os.path.exists('out/'):
+                os.makedirs('out/')
+
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]
@@ -175,7 +176,7 @@ def train(options):
                     for j, xi in enumerate(grid_y):
                         z_.append(np.array([[xi, yi]]))
 
-                samples, _ = sess.run(X_samples, feed_dict={z: np.squeeze(np.asarray(z_))})
+                samples = sess.run(X_samples, feed_dict={z: np.squeeze(np.asarray(z_))})
 
                 for idx, sample in enumerate(list(samples)):
                     floats_to_wav('out/{}.wav'.format(z_[idx]), sample.flatten(), 16000)
