@@ -31,7 +31,7 @@ hidden_layer2 = 1000
 
 def plot(sess, z, X_samples, num_images):
     samples = []
-    n = 15
+    n = 25
     grid_x = np.linspace(-2, 2, n)
     grid_y = np.linspace(-2, 2, n)
     for i, yi in enumerate(grid_x):

@@ -31,7 +31,7 @@ hidden_layer2 = 1000
 
 def plot(sess, z, X_samples, num_images):
     samples = []
-    n = 15
+    n = 25
     grid_x = np.linspace(-2, 2, n)
     grid_y = np.linspace(-2, 2, n)
     for i, yi in enumerate(grid_x):
@@ -127,8 +127,6 @@ def train(options):
         if not options.run_inference:
             try:
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
-                if not os.path.exists('out/'):
-                    os.makedirs('out/')
                 for epoch in range(options.epochs):
                     n_batches = int(mnist.train.num_examples / options.batch_size)
                     for iteration in range(n_batches):
@@ -163,6 +161,8 @@ def train(options):
                 print("Saved Model Path: {}".format(options.checkpoints_path))
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
+            if not os.path.exists('out/'):
+                os.makedirs('out/')
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]
