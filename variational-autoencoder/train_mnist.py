@@ -31,9 +31,8 @@ hidden_layer2 = 1000
 
 def plot(sess, z, X_samples, num_images):
     samples = []
-    n = 25
-    grid_x = np.linspace(-2, 2, n)
-    grid_y = np.linspace(-2, 2, n)
+    grid_x = np.linspace(-2, 2, num_images)
+    grid_y = np.linspace(-2, 2, num_images)
     for i, yi in enumerate(grid_x):
         for j, xi in enumerate(grid_y):
             z_sample = np.array([[xi, yi]])
@@ -145,7 +144,7 @@ def train(options):
                                 log.write("Epoch: {}, iteration: {}\n".format(epoch, iteration))
                                 log.write("Loss: {}\n".format(batch_loss))
                             if options.save_plots:
-                                fig = plot(sess, z, X_samples, num_images=15)
+                                fig = plot(sess, z, X_samples, num_images=25)
                                 plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
                                 plt.close(fig)
 
