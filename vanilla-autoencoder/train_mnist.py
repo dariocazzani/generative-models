@@ -31,7 +31,6 @@ hidden_layer2 = 1000
 
 def plot(sess, z, X_samples, num_images):
     samples = []
-    n = 25
     grid_x = np.linspace(-2, 2, num_images)
     grid_y = np.linspace(-2, 2, num_images)
     for i, yi in enumerate(grid_x):
@@ -102,9 +101,11 @@ def train(options):
     # Visualization
     tf.summary.scalar(name='Loss', tensor=loss)
     tf.summary.histogram(name='Encoder Distribution', values=encoder_output)
+    tf.summary.histogram(name='Latent_variable', values=encoder_output)
 
     for grad, var in grads_and_vars:
         tf.summary.histogram(var.name + '/gradient', grad)
+        tf.summary.histogram(var.name + '/value', var)
 
     tf.summary.image(name='Input Images', tensor=input_images, max_outputs=10)
     tf.summary.image(name='Generated Images', tensor=generated_images, max_outputs=10)
@@ -135,7 +136,7 @@ def train(options):
                                 log.write("Epoch: {}, iteration: {}\n".format(i, b))
                                 log.write("Loss: {}\n".format(batch_loss))
                             if options.save_plots:
-                                fig = plot(sess, z, X_samples, num_images=25)
+                                fig = plot(sess, z, X_samples, num_images=50)
                                 plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
                                 plt.close(fig)
 
@@ -159,7 +160,7 @@ def train(options):
             if len(experiments) > 0:
                 print('Restoring: {}'.format(experiments[-1]))
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
-                fig = plot(sess, z, X_samples, num_images=15)
+                fig = plot(sess, z, X_samples, num_images=50)
                 plt.show()
                 # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
                 plt.close(fig)
