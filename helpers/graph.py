@@ -7,8 +7,8 @@ def get_variables(shape, scope):
     b = tf.get_variable('bias_{}'.format(scope), shape[-1], initializer=const)
     return W, b
 
-def linear(_input, output_dim, scope=None):
-    with tf.variable_scope(scope, reuse=None):
+def linear(_input, output_dim, scope=None, reuse=None):
+    with tf.variable_scope(scope, reuse=reuse):
         shape = [int(_input.get_shape()[1]), output_dim]
         W, b = get_variables(shape, scope)
         return tf.matmul(_input, W) + b
