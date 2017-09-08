@@ -112,7 +112,7 @@ def train(options):
                         if iteration % 50 == 0:
                             summary, batch_loss = sess.run([summary_op, vae_loss], feed_dict={X: batch_x})
                             writer.add_summary(summary, global_step=step)
-                            print("Epoch: {} - Iteration {} - Loss: {}\n".format(epoch, iteration, batch_loss))
+                            print("Epoch: {} - Iteration {} - Loss: {:.4f}\n".format(epoch, iteration, batch_loss))
 
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
