@@ -39,8 +39,7 @@ def encoder(x, reuse=False):
 		tf.get_variable_scope().reuse_variables()
 	with tf.variable_scope('Encoder'):
 		e_cell1 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
-		e_cell2 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
-		cells = tf.contrib.rnn.MultiRNNCell([e_cell1, e_cell2])
+		cells = tf.contrib.rnn.MultiRNNCell([e_cell1])
 		_, states = tf.contrib.rnn.static_rnn(cells, x, dtype=tf.float32)
 		state_c, state_h = states[-1]
 		hidden_state = tf.concat([state_c, state_h], 1)
@@ -79,7 +78,11 @@ def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 			o, s = rnn_forward_pass(cells, previous_output, previous_states)
 		outputs.append(o)
 		states.append(s)
-	return outputs, states
+
+	# outpus is a list of lists - we are interested in the last element
+	# of each list
+	last_outputs = [last for *_, last in outputs]
+	return last_outputs, states[-1]
 
 # P(X|z)
 def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
@@ -101,10 +104,8 @@ def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
 								 inputs=inputs)
 
 		# logits = tf.add_n(outputs)
-		# outpus is a list of lists - we are interested in the last element
-		# of each list
-		last_outputs = [last for *_, last in outputs]
-		logits = tf.stack(last_outputs, axis=1, name='logits')
+
+		logits = tf.stack(outputs, axis=1, name='logits')
 		logits_reshaped = tf.reshape(logits, [-1, input_dim * sequence_length])
 		out = tf.nn.sigmoid(logits_reshaped)
 		return out, logits_reshaped
