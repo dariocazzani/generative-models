@@ -78,10 +78,6 @@ def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 			o, s = rnn_forward_pass(cells, previous_output, previous_states)
 		outputs.append(o)
 		states.append(s)
-
-	# outpus is a list of lists - we are interested in the last element
-	# of each list
-	# last_outputs = [last for *_, last in outputs]
 	# return states for last step only
 	return outputs, states[-1]
 
