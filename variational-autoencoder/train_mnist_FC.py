@@ -86,8 +86,8 @@ def train(options):
     tf.summary.histogram(name='Sampled variable', values=z_sample)
 
     for grad, var in grads_and_vars:
-        tf.summary.histogram(var.name + '/gradient', grad)
-        tf.summary.histogram(var.name + '/value', var)
+        tf.summary.histogram('Gradients/' + var.name, grad)
+        tf.summary.histogram('Values/' + var.name, var)
 
     tf.summary.image(name='Input Images', tensor=input_images, max_outputs=10)
     tf.summary.image(name='Generated Images', tensor=generated_images, max_outputs=10)
@@ -117,17 +117,11 @@ def train(options):
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
                 print("Model Trained!")
-                print("Tensorboard Path: {}".format(options.tensorboard_path))
-                print("Log Path: {}".format(options.logs_path + '/log.txt'))
-                print("Saved Model Path: {}".format(options.checkpoints_path))
 
             except KeyboardInterrupt:
                 print('Stopping training...')
-                print("Saved Model Path: {}".format(options.checkpoints_path))
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
-            if not os.path.exists('out/'):
-                os.makedirs('out/')
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]

@@ -81,7 +81,6 @@ def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
 
         # logits = tf.add_n(outputs)
         logits = tf.stack(outputs, axis=1, name='logits')
-        print('logits: {}'.format(logits.get_shape()))
         logits_reshaped = tf.reshape(logits, [-1, input_dim * sequence_length])
         out = tf.nn.sigmoid(logits_reshaped)
         return out, logits_reshaped
@@ -127,13 +126,11 @@ def train(options):
 
     # Visualization
     tf.summary.scalar(name='Loss', tensor=vae_loss)
-    tf.summary.histogram(name='Encoder z_mu', values=z_mu)
-    tf.summary.histogram(name='Encoder z_logvar', values=z_logvar)
     tf.summary.histogram(name='Sampled variable', values=z_sample)
 
     for grad, var in grads_and_vars:
-        tf.summary.histogram(var.name + '/gradient', grad)
-        tf.summary.histogram(var.name + '/value', var)
+        tf.summary.histogram('Gradients/' + var.name, grad)
+        tf.summary.histogram('Values/' + var.name, var)
 
     tf.summary.image(name='Input Images', tensor=input_images, max_outputs=10)
     tf.summary.image(name='Generated Images', tensor=generated_images, max_outputs=10)
@@ -164,16 +161,10 @@ def train(options):
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
 
                 print("Model Trained!")
-                print("Tensorboard Path: {}".format(options.tensorboard_path))
-                print("Log Path: {}".format(options.logs_path + '/log.txt'))
-                print("Saved Model Path: {}".format(options.checkpoints_path))
             except KeyboardInterrupt:
                 print('Stopping training...')
-                print("Saved Model Path: {}".format(options.checkpoints_path))
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
-            if not os.path.exists('out/'):
-                os.makedirs('out/')
             print('Restoring latest saved TensorFlow model...')
             dir_path = os.path.dirname(os.path.realpath(__file__))
             cur_dir = dir_path.split('/')[-1]
