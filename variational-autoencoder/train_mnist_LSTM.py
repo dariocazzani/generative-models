@@ -39,8 +39,10 @@ def encoder(x, reuse=False):
 		tf.get_variable_scope().reuse_variables()
 	with tf.variable_scope('Encoder'):
 		e_cell1 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
-		_, states = tf.contrib.rnn.static_rnn(e_cell1, x, dtype=tf.float32)
-		state_c, state_h = states
+		e_cell2 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
+		cells = tf.contrib.rnn.MultiRNNCell([e_cell1, e_cell2])
+		_, states = tf.contrib.rnn.static_rnn(cells, x, dtype=tf.float32)
+		state_c, state_h = states[-1]
 		hidden_state = tf.concat([state_c, state_h], 1)
 		z_mu = linear(hidden_state, options.z_dim, 'z_mu')
 		z_logvar = linear(hidden_state, options.z_dim, 'z_logvar')
