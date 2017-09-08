@@ -11,14 +11,13 @@ sys.path.append('../')
 from config import set_config
 from helpers.misc import check_tf_version, extend_options
 from helpers.graph import get_variables, linear, AdamOptimizer
+from helpers.display import plot
 
 import subprocess
 import tensorflow as tf
 import numpy as np
 import os
 import glob
-import matplotlib.pyplot as plt
-from matplotlib import gridspec
 
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -28,29 +27,6 @@ mnist = input_data.read_data_sets('../Data', one_hot=True)
 # Parameters
 input_dim = 28
 hidden_layer = 1000
-
-def plot(sess, z, X_samples, num_images):
-    samples = []
-    grid_x = np.linspace(-2, 2, num_images)
-    grid_y = np.linspace(-2, 2, num_images)
-    for i, yi in enumerate(grid_x):
-        for j, xi in enumerate(grid_y):
-            z_sample = np.array([[xi, yi]])
-            samples.append(sess.run(X_samples, feed_dict={z: z_sample}))
-
-    fig = plt.figure(figsize=(8, 8))
-    gs = gridspec.GridSpec(num_images, num_images)
-    gs.update(wspace=0.05, hspace=0.05)
-
-    for i, sample in enumerate(samples):
-        ax = plt.subplot(gs[i])
-        plt.axis('off')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_aspect('equal')
-        plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
-    return fig
-
 
 # Q(z|X)
 def encoder(x, reuse=False):
@@ -70,13 +46,13 @@ def sample_z(mu, log_var):
     return mu + tf.exp(log_var / 2) * eps
 
 # P(X|z)
-def decoder(z, inputs=None, reuse=False):
+def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
     if reuse:
         tf.get_variable_scope().reuse_variables()
     with tf.variable_scope('Decoder'):
-        lstm_cell_1 = tf.nn.rnn_cell.LSTMCell(input_dim*input_dim)
+        lstm_cell_1 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
         lstm_cell_2 = tf.nn.rnn_cell.LSTMCell(input_dim)
-        expanded_z_1 = tf.nn.relu(linear(z, input_dim*input_dim, 'linear_expand_z_1'))
+        expanded_z_1 = tf.nn.relu(linear(z, hidden_layer, 'linear_expand_z_1'))
         expanded_z_2 = tf.nn.relu(linear(z, input_dim, 'linear_expand_z_2'))
         first_input = tf.add(tf.zeros_like(expanded_z_1[:, :input_dim]), 1.)
         with tf.variable_scope('layer_1'):
@@ -89,7 +65,7 @@ def decoder(z, inputs=None, reuse=False):
 
         outputs = []
         outputs.append(output_2)
-        for i in range(input_dim-1):
+        for i in range(sequence_length-1):
             # Training
             if inputs:
                 with tf.variable_scope('layer_1'):
@@ -105,19 +81,24 @@ def decoder(z, inputs=None, reuse=False):
 
         # logits = tf.add_n(outputs)
         logits = tf.stack(outputs, axis=1, name='logits')
-        logits_reshaped = tf.reshape(logits, [-1, input_dim * input_dim])
+        print('logits: {}'.format(logits.get_shape()))
+        logits_reshaped = tf.reshape(logits, [-1, input_dim * sequence_length])
         out = tf.nn.sigmoid(logits_reshaped)
         return out, logits_reshaped
 
 
 def train(options):
+    """
+    TO ADD TO OPTIONS.. MAYBE
+    """
+    sequence_length = 4*28
     # Placeholders for input data and the targets
     with tf.name_scope('Input'):
         X = tf.placeholder(dtype=tf.float32, shape=[None, input_dim * input_dim], name='Input')
         input_images = tf.reshape(X, [-1, input_dim, input_dim, 1])
         X_reshaped = tf.reshape(X, [-1, input_dim, input_dim])
         # Unstack to get a list of vertical slices of shape (batch_size, input_dim)
-        X_list = tf.unstack(X_reshaped, input_dim, 1)
+        X_list = tf.unstack(X_reshaped, num=None, axis=1)
 
     with tf.name_scope('Latent_variable'):
         z = tf.placeholder(dtype=tf.float32, shape=[None, options.z_dim], name='Latent_variable')
@@ -130,7 +111,7 @@ def train(options):
             generated_images = tf.reshape(decoder_output, [-1, input_dim, input_dim, 1])
 
     with tf.variable_scope(tf.get_variable_scope()):
-        X_samples, _ = decoder(z, reuse=True)
+        X_samples, _ = decoder(z, reuse=True, sequence_length=sequence_length)
 
     # Loss
     with tf.name_scope('Loss'):
@@ -161,13 +142,13 @@ def train(options):
     saver = tf.train.Saver()
     step = 0
     init = tf.global_variables_initializer()
+    n_batches = int(mnist.train.num_examples / options.batch_size)
     with tf.Session() as sess:
         sess.run(init)
         if not options.run_inference:
             try:
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
                 for epoch in range(options.epochs):
-                    n_batches = int(mnist.train.num_examples / options.batch_size)
                     for iteration in range(n_batches):
                         batch_x, _ = mnist.train.next_batch(options.batch_size)
 
@@ -177,13 +158,8 @@ def train(options):
                         if iteration % 50 == 0:
                             batch_loss, summary = sess.run([vae_loss, summary_op], feed_dict={X: batch_x})
                             writer.add_summary(summary, global_step=step)
-                            print("Epoch: {} - Loss: {}\n".format(iteration, batch_loss))
-                            with open(options.logs_path + '/log.txt', 'a') as log:
-                                log.write("Epoch: {} - Loss: {}\n".format(iteration, batch_loss))
-                            if options.save_plots:
-                                fig = plot(sess, z, X_samples, num_images=15)
-                                plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
-                                plt.close(fig)
+                            print("Epoch: {} - Iteration {} - Loss: {}\n".format(epoch, iteration, batch_loss))
+
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
 
@@ -207,10 +183,8 @@ def train(options):
             if len(experiments) > 0:
                 print('Restoring: {}'.format(experiments[-1]))
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
-                fig = plot(sess, z, X_samples, num_images=15)
-                plt.show()
-                # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
-                plt.close(fig)
+                plot(sess, z, X_samples, num_images=15, height=sequence_length, width=input_dim)
+
             else:
                 print('No checkpoint found at {}'.format(os.path.join(options.MAIN_PATH, cur_dir)))
 
