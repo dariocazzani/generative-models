@@ -21,8 +21,6 @@ def set_config():
                             type=float,         help="Set Beta 1 value for AdamOptimizer")
     parser.add_option("--run_inference",        default=False,
                             action="store_true",help="Train or just run inference to generate image")
-    parser.add_option("--save_plots",           default=False,
-                            action="store_true",help="Save plots in folder out every 50 iterations")
 
     return parser
 
