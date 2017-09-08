@@ -64,7 +64,7 @@ def rnn_forward_pass(cells, _input, states):
 				o, s = cells[layer](cell_outputs[layer-1], states[layer])
 			cell_outputs.append(o)
 			cell_states.append(s)
-	return cell_outputs, cell_states
+	return cell_outputs[-1], cell_states
 
 def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 	outputs = []
@@ -73,7 +73,7 @@ def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 		if step == 0:
 			o, s = rnn_forward_pass(cells, start, initial_states)
 		else:
-			previous_output = inputs[step-1] if inputs else outputs[step-1][-1]
+			previous_output = inputs[step-1] if inputs else outputs[step-1]
 			previous_states = states[step-1]
 			o, s = rnn_forward_pass(cells, previous_output, previous_states)
 		outputs.append(o)
@@ -81,8 +81,9 @@ def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 
 	# outpus is a list of lists - we are interested in the last element
 	# of each list
-	last_outputs = [last for *_, last in outputs]
-	return last_outputs, states[-1]
+	# last_outputs = [last for *_, last in outputs]
+	# return states for last step only
+	return outputs, states[-1]
 
 # P(X|z)
 def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
