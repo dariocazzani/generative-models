@@ -18,5 +18,4 @@ if __name__ == '__main__':
     dir_path = os.path.dirname(os.path.realpath(__file__))
     cur_dir = dir_path.split('/')[-1]
     subprocess.call(['rm', '-r', '{}'.format(os.path.join(options.MAIN_PATH, cur_dir))])
-    subprocess.call(['rm', '-r', 'out'])
     os.path.join(options.MAIN_PATH, cur_dir)

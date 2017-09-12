@@ -11,6 +11,7 @@ sys.path.append('../')
 from config import set_config
 from helpers.misc import check_tf_version, extend_options
 from helpers.graph import get_variables, linear, AdamOptimizer
+from helpers.display import plot
 
 import subprocess
 import tensorflow as tf
@@ -28,28 +29,6 @@ mnist = input_data.read_data_sets('../Data', one_hot=True)
 input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
-
-def plot(sess, z, X_samples, num_images):
-    samples = []
-    grid_x = np.linspace(-2, 2, num_images)
-    grid_y = np.linspace(-2, 2, num_images)
-    for i, yi in enumerate(grid_x):
-        for j, xi in enumerate(grid_y):
-            z_sample = np.array([[xi, yi]])
-            samples.append(sess.run(X_samples, feed_dict={z: z_sample}))
-
-    fig = plt.figure(figsize=(8, 8))
-    gs = gridspec.GridSpec(num_images, num_images)
-    gs.update(wspace=0.05, hspace=0.05)
-
-    for i, sample in enumerate(samples):
-        ax = plt.subplot(gs[i])
-        plt.axis('off')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_aspect('equal')
-        plt.imshow(sample.reshape(28, 28), cmap='Greys_r')
-    return fig
 
 # The autoencoder network
 def encoder(x, reuse=False):
@@ -100,12 +79,11 @@ def train(options):
 
     # Visualization
     tf.summary.scalar(name='Loss', tensor=loss)
-    tf.summary.histogram(name='Encoder Distribution', values=encoder_output)
     tf.summary.histogram(name='Latent_variable', values=encoder_output)
 
     for grad, var in grads_and_vars:
-        tf.summary.histogram(var.name + '/gradient', grad)
-        tf.summary.histogram(var.name + '/value', var)
+        tf.summary.histogram('Gradients/' + var.name, grad)
+        tf.summary.histogram('Values/' + var.name, var)
 
     tf.summary.image(name='Input Images', tensor=input_images, max_outputs=10)
     tf.summary.image(name='Generated Images', tensor=generated_images, max_outputs=10)
@@ -114,41 +92,30 @@ def train(options):
     saver = tf.train.Saver()
     step = 0
     init = tf.global_variables_initializer()
+    n_batches = int(mnist.train.num_examples / options.batch_size)
     with tf.Session() as sess:
         sess.run(init)
         if not options.run_inference:
             try:
                 writer = tf.summary.FileWriter(logdir=options.tensorboard_path, graph=sess.graph)
-                if not os.path.exists('out/'):
-                    os.makedirs('out/')
-                for i in range(options.epochs):
-                    n_batches = int(mnist.train.num_examples / options.batch_size)
-                    for b in range(n_batches):
+                for epoch in range(options.epochs):
+                    for iteration in range(n_batches):
                         batch_x, _ = mnist.train.next_batch(options.batch_size)
-                        sess.run(train_op, feed_dict={X: batch_x})
-                        if b % 50 == 0:
-                            batch_loss, summary = sess.run([loss, summary_op], feed_dict={X: batch_x})
-                            writer.add_summary(summary, global_step=step)
-                            print("Loss: {}".format(batch_loss))
-                            print("Epoch: {}, iteration: {}".format(i, b))
 
-                            with open(options.logs_path + '/log.txt', 'a') as log:
-                                log.write("Epoch: {}, iteration: {}\n".format(i, b))
-                                log.write("Loss: {}\n".format(batch_loss))
-                            if options.save_plots:
-                                fig = plot(sess, z, X_samples, num_images=50)
-                                plt.savefig('out/{}.png'.format(str(step).zfill(8)), bbox_inches='tight')
-                                plt.close(fig)
+                        # Train
+                        sess.run(train_op, feed_dict={X: batch_x})
+
+                        if iteration % 50 == 0:
+                            summary, batch_loss = sess.run([summary_op, loss], feed_dict={X: batch_x})
+                            writer.add_summary(summary, global_step=step)
+                            print("Epoch: {} - Iteration {} - Loss: {:.4f}\n".format(epoch, iteration, batch_loss))
 
                         step += 1
                     saver.save(sess, save_path=options.checkpoints_path, global_step=step)
                 print("Model Trained!")
-                print("Tensorboard Path: {}".format(options.tensorboard_path))
-                print("Log Path: {}".format(options.logs_path + '/log.txt'))
-                print("Saved Model Path: {}".format(options.checkpoints_path))
+
             except KeyboardInterrupt:
                 print('Stopping training...')
-                print("Saved Model Path: {}".format(options.checkpoints_path))
                 saver.save(sess, save_path=options.checkpoints_path, global_step=step)
         else:
             print('Restoring latest saved TensorFlow model...')
@@ -160,10 +127,8 @@ def train(options):
             if len(experiments) > 0:
                 print('Restoring: {}'.format(experiments[-1]))
                 saver.restore(sess, tf.train.latest_checkpoint(os.path.join(experiments[-1], 'checkpoints')))
-                fig = plot(sess, z, X_samples, num_images=50)
-                plt.show()
-                # plt.savefig('out/{}.png'.format(str(i).zfill(3)), bbox_inches='tight')
-                plt.close(fig)
+                plot(sess, z, X_samples, num_images=15, height=28, width=28)
+
             else:
                 print('No checkpoint found at {}'.format(os.path.join(options.MAIN_PATH, cur_dir)))
 
