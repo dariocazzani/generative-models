@@ -11,6 +11,7 @@ sys.path.append('../')
 from config import set_config
 from helpers.misc import check_tf_version, extend_options
 from helpers.graph import get_variables, linear, AdamOptimizer
+from helpers.graph import rnn_forward_pass, seq2seq
 from helpers.display import plot
 
 import subprocess
@@ -31,7 +32,7 @@ TO ADD TO OPTIONS.. MAYBE
 input_dim = 28
 hidden_layer = 1000
 sequence_length = 28*2
-teacher_forcing = False
+teacher_forcing = True
 
 # Q(z|X)
 def encoder(x, reuse=False):
@@ -51,36 +52,6 @@ def sample_z(mu, log_var):
 	eps = tf.random_normal(shape=tf.shape(mu))
 	return mu + tf.exp(log_var / 2) * eps
 
-def rnn_forward_pass(cells, _input, states):
-	cell_outputs = []
-	cell_states = []
-	assert(len(cells) == len(states))
-	num_layers = len(cells)
-	for layer in range(num_layers):
-		with tf.variable_scope('layer_{}'.format(layer)):
-			if layer == 0:
-				o, s = cells[layer](_input, states[0])
-			else:
-				o, s = cells[layer](cell_outputs[layer-1], states[layer])
-			cell_outputs.append(o)
-			cell_states.append(s)
-	return cell_outputs[-1], cell_states
-
-def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
-	outputs = []
-	states = []
-	for step in range(sequence_length):
-		if step == 0:
-			o, s = rnn_forward_pass(cells, start, initial_states)
-		else:
-			previous_output = inputs[step-1] if inputs else outputs[step-1]
-			previous_states = states[step-1]
-			o, s = rnn_forward_pass(cells, previous_output, previous_states)
-		outputs.append(o)
-		states.append(s)
-	# return states for last step only
-	return outputs, states[-1]
-
 # P(X|z)
 def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
 	if reuse:
@@ -94,16 +65,19 @@ def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
 		initial_state_2 = (expanded_z_2, expanded_z_2)
 		first_input = tf.add(tf.zeros_like(expanded_z_1[:, :input_dim]), 1.)
 
+		# Use custom seq2seq module
 		outputs, states = seq2seq([lstm_cell_1, lstm_cell_2],
 								 [initial_state_1, initial_state_2],
 								 first_input,
 								 sequence_length,
 								 inputs=inputs)
 
-		# logits = tf.add_n(outputs)
 
+		# logits = tf.add_n(outputs)
+		print('outputs {}'.format(outputs[0].get_shape()))
 		logits = tf.stack(outputs, axis=1, name='logits')
-		logits_reshaped = tf.reshape(logits, [-1, input_dim * sequence_length])
+		print('logits {}'.format(logits.get_shape()))
+		logits_reshaped = tf.reshape(logits	, [-1, input_dim * sequence_length])
 		out = tf.nn.sigmoid(logits_reshaped)
 		return out, logits_reshaped
 

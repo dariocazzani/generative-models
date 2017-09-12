@@ -21,3 +21,33 @@ def AdamOptimizer(loss, lr, beta1):
         grads_and_vars = [(tf.clip_by_norm(grad, 5), var) for grad, var in grads_and_vars]
     train_op = optimizer.apply_gradients(grads_and_vars)
     return train_op, grads_and_vars
+
+def rnn_forward_pass(cells, _input, states):
+	cell_outputs = []
+	cell_states = []
+	assert(len(cells) == len(states))
+	num_layers = len(cells)
+	for layer in range(num_layers):
+		with tf.variable_scope('layer_{}'.format(layer)):
+			if layer == 0:
+				o, s = cells[layer](_input, states[0])
+			else:
+				o, s = cells[layer](cell_outputs[layer-1], states[layer])
+			cell_outputs.append(o)
+			cell_states.append(s)
+	return cell_outputs[-1], cell_states
+
+def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
+	outputs = []
+	states = []
+	for step in range(sequence_length):
+		if step == 0:
+			o, s = rnn_forward_pass(cells, start, initial_states)
+		else:
+			previous_output = inputs[step-1] if inputs else outputs[step-1]
+			previous_states = states[step-1]
+			o, s = rnn_forward_pass(cells, previous_output, previous_states)
+		outputs.append(o)
+		states.append(s)
+	# return states for last step only
+	return outputs, states[-1]
