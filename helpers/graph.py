@@ -1,26 +1,26 @@
 import tensorflow as tf
 
 def get_variables(shape, scope):
-    xavier = tf.contrib.layers.xavier_initializer()
-    const = tf.constant_initializer(0.1)
-    W = tf.get_variable('weight_{}'.format(scope), shape, initializer=xavier)
-    b = tf.get_variable('bias_{}'.format(scope), shape[-1], initializer=const)
-    return W, b
+	xavier = tf.contrib.layers.xavier_initializer()
+	const = tf.constant_initializer(0.1)
+	W = tf.get_variable('weight_{}'.format(scope), shape, initializer=xavier)
+	b = tf.get_variable('bias_{}'.format(scope), shape[-1], initializer=const)
+	return W, b
 
 def linear(_input, output_dim, scope=None, reuse=None):
-    with tf.variable_scope(scope, reuse=reuse):
-        shape = [int(_input.get_shape()[1]), output_dim]
-        W, b = get_variables(shape, scope)
-        return tf.matmul(_input, W) + b
+	with tf.variable_scope(scope, reuse=reuse):
+		shape = [int(_input.get_shape()[1]), output_dim]
+		W, b = get_variables(shape, scope)
+		return tf.matmul(_input, W) + b
 
 def AdamOptimizer(loss, lr, beta1):
-    clip_grad = False
-    optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=beta1)
-    grads_and_vars = optimizer.compute_gradients(loss)
-    if clip_grad:
-        grads_and_vars = [(tf.clip_by_norm(grad, 5), var) for grad, var in grads_and_vars]
-    train_op = optimizer.apply_gradients(grads_and_vars)
-    return train_op, grads_and_vars
+	clip_grad = False
+	optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=beta1)
+	grads_and_vars = optimizer.compute_gradients(loss)
+	if clip_grad:
+		grads_and_vars = [(tf.clip_by_norm(grad, 5), var) for grad, var in grads_and_vars]
+	train_op = optimizer.apply_gradients(grads_and_vars)
+	return train_op, grads_and_vars
 
 def rnn_forward_pass(cells, _input, states):
 	cell_outputs = []
@@ -46,7 +46,9 @@ def seq2seq(cells, initial_states, start, sequence_length, inputs=None):
 		else:
 			previous_output = inputs[step-1] if inputs else outputs[step-1]
 			previous_states = states[step-1]
+
 			o, s = rnn_forward_pass(cells, previous_output, previous_states)
+
 		outputs.append(o)
 		states.append(s)
 	# return states for last step only
