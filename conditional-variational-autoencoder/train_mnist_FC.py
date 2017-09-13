@@ -25,7 +25,6 @@ mnist = input_data.read_data_sets('../Data', one_hot=True)
 # Parameters
 input_dim = mnist.train.images.shape[1]
 label_dim = mnist.train.labels.shape[1]
-print(label_dim)
 hidden_layer1 = 1000
 hidden_layer2 = 1000
 
