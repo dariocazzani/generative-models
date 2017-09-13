@@ -60,7 +60,7 @@ def decoder(z, inputs=None, reuse=False, sequence_length=input_dim):
 		lstm_cell_1 = tf.nn.rnn_cell.LSTMCell(hidden_layer)
 		lstm_cell_2 = tf.nn.rnn_cell.LSTMCell(input_dim)
 		expanded_z_1 = tf.nn.relu(linear(z, hidden_layer, 'linear_expand_z_1'))
-		expanded_z_2 = tf.nn.relu(linear(z, input_dim, 'linear_expand_z_3'))
+		expanded_z_2 = tf.nn.relu(linear(z, input_dim, 'linear_expand_z_2'))
 		initial_state_1 = (expanded_z_1, expanded_z_1)
 		initial_state_2 = (expanded_z_2, expanded_z_2)
 		first_input = tf.add(tf.zeros_like(expanded_z_1[:, :input_dim]), 1.)
