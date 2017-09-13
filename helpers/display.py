@@ -7,7 +7,7 @@ def plot(sess, z, X_samples, num_images, height, width, condition=False, c=None)
     num_classes = 10
     if condition:
         y = np.zeros(shape=[1, num_classes])
-        num_digits = input('How many digits do you want to combine? [0-9]:')
+        num_digits = input('How many digits do you want to combine? [1-10]: ')
         try:
             for d in range(int(num_digits)):
                 digit = input('What digit do you want to use? [0-9]: ')
