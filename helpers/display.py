@@ -7,14 +7,12 @@ def plot(sess, z, X_samples, num_images, height, width, condition=False, c=None)
     num_classes = 10
     if condition:
         y = np.zeros(shape=[1, num_classes])
-        digit = input('What digit do you want to generate? [0-9]: ')
-        digit2 = input('What digit do you want to combine the previous one? [0-9]: ')
-
-        digit = int(digit)
-        digit2 = int(digit2)
+        num_digits = input('How many digits do you want to combine? [0-9]:')
         try:
-            y[:, digit] = 1.
-            y[:, digit2] = 1.
+            for d in range(int(num_digits)):
+                digit = input('What digit do you want to use? [0-9]: ')
+                digit = int(digit)
+                y[:, digit] = 1.
         except Exception as e:
             print('Could not generate condition: {}'.format(e))
 
