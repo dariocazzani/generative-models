@@ -29,51 +29,61 @@ mnist = input_data.read_data_sets('../Data', one_hot=True)
 input_dim = mnist.train.images.shape[1]
 hidden_layer1 = 1000
 hidden_layer2 = 1000
+noise_length = int(input_dim / 5.)
 
 # The autoencoder network
 def encoder(x):
     e_linear_1 = tf.nn.relu(linear(x, hidden_layer1, 'e_linear_1'))
     e_linear_2 = tf.nn.relu(linear(e_linear_1, hidden_layer2, 'e_linear_2'))
-    latent_variable = linear(e_linear_2, options.z_dim, 'e_latent_variable')
-    return latent_variable
+    z_mu = linear(e_linear_2, options.z_dim, 'z_mu')
+    z_logvar = linear(e_linear_2, options.z_dim, 'z_logvar')
+    return z_mu, z_logvar
 
+def sample_z(mu, log_var):
+    eps = tf.random_normal(shape=tf.shape(mu))
+    return mu + tf.exp(log_var / 2) * eps
 
 def decoder(z):
     d_linear_1 = tf.nn.relu(linear(z, hidden_layer2, 'd_linear_1'))
     d_linear_2 = tf.nn.relu(linear(d_linear_1, hidden_layer1, 'd_linear_2'))
     logits = linear(d_linear_2, input_dim, 'logits')
     prob = tf.nn.sigmoid(logits)
-    return prob
-
+    return prob, logits
 
 def train(options):
     # Placeholders for input data and the targets
     with tf.name_scope('Input'):
         X = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Input')
-        input_images = tf.reshape(X, [-1, 28, 28, 1])
+        X_noisy = tf.placeholder(dtype=tf.float32, shape=[options.batch_size, input_dim], name='Input_noisy')
+        input_images = tf.reshape(X_noisy, [-1, 28, 28, 1])
 
     with tf.name_scope('Latent_variable'):
         z = tf.placeholder(dtype=tf.float32, shape=[None, options.z_dim], name='Latent_variable')
 
     with tf.variable_scope('Encoder'):
-        encoder_output = encoder(X)
+        z_mu, z_logvar = encoder(X_noisy)
 
     with tf.variable_scope('Decoder') as scope:
-        decoder_output = decoder(encoder_output)
+        z_sample = sample_z(z_mu, z_logvar)
+        decoder_output, logits = decoder(z_sample)
         generated_images = tf.reshape(decoder_output, [-1, 28, 28, 1])
         scope.reuse_variables()
-        X_samples = decoder(z)
+        X_samples, _ = decoder(z)
 
-    # Loss - MSE
     with tf.name_scope('Loss'):
-        loss = tf.reduce_mean(tf.square(X - decoder_output))
+        # E[log P(X|z)]
+        reconstruction_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=X), 1)
+        # D_KL(Q(z|X) || P(z|X)); calculate in closed form as both dist. are Gaussian
+        kl_loss = 0.5 * tf.reduce_sum(tf.exp(z_logvar) + z_mu**2 - 1. - z_logvar, 1)
+        # VAE loss
+        vae_loss = tf.reduce_mean(reconstruction_loss + kl_loss)
 
     # Optimizer
-    train_op, grads_and_vars = AdamOptimizer(loss, options.learning_rate, options.beta1)
+    train_op, grads_and_vars = AdamOptimizer(vae_loss, options.learning_rate, options.beta1)
 
     # Visualization
-    tf.summary.scalar(name='Loss', tensor=loss)
-    tf.summary.histogram(name='Latent_variable', values=encoder_output)
+    tf.summary.scalar(name='Loss', tensor=vae_loss)
+    tf.summary.histogram(name='Sampled variable', values=z_sample)
 
     for grad, var in grads_and_vars:
         tf.summary.histogram('Gradients/' + var.name, grad)
@@ -96,11 +106,17 @@ def train(options):
                     for iteration in range(n_batches):
                         batch_x, _ = mnist.train.next_batch(options.batch_size)
 
+                        # generate mask for noisy batch
+                        mask = np.ones(input_dim)
+                        idx = np.random.randint(input_dim - noise_length)
+                        mask[idx:idx+noise_length] = 0.
+                        mask = np.tile(mask, (options.batch_size, 1))
+                        noisy_batch = batch_x * mask
                         # Train
-                        sess.run(train_op, feed_dict={X: batch_x})
+                        sess.run(train_op, feed_dict={X: batch_x, X_noisy: noisy_batch})
 
                         if iteration % 50 == 0:
-                            summary, batch_loss = sess.run([summary_op, loss], feed_dict={X: batch_x})
+                            summary, batch_loss = sess.run([summary_op, vae_loss], feed_dict={X: batch_x, X_noisy: noisy_batch})
                             writer.add_summary(summary, global_step=step)
                             print("Epoch: {} - Iteration {} - Loss: {:.4f}\n".format(epoch, iteration, batch_loss))
 

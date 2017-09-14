@@ -3,6 +3,7 @@ import subprocess
 import uuid
 import tensorflow as tf
 import os
+import numpy as np
 
 def progress(count, total, suffix=''):
     bar_len = 60
@@ -13,6 +14,13 @@ def progress(count, total, suffix=''):
 
     sys.stderr.write('[%s] %s%s ...%s\r' % (bar, percents, '%', suffix))
     sys.stdout.flush
+
+def generate_mask(shape, noise_length):
+    mask = np.ones(shape[1])
+    idx = np.random.randint(shape[1] - noise_length)
+    mask[idx:idx+noise_length] = 0.
+    mask = np.tile(mask, (shape[0], 1))
+    return mask
 
 def get_git_revision_short_hash():
     return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()

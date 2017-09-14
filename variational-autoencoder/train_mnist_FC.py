@@ -28,10 +28,8 @@ hidden_layer1 = 1000
 hidden_layer2 = 1000
 
 # Q(z|X)
-def encoder(X, reuse=False):
-    if reuse:
-        tf.get_variable_scope().reuse_variables()
-    e_linear_1 = tf.nn.relu(linear(X, hidden_layer1, 'e_linear_1'))
+def encoder(x):
+    e_linear_1 = tf.nn.relu(linear(x, hidden_layer1, 'e_linear_1'))
     e_linear_2 = tf.nn.relu(linear(e_linear_1, hidden_layer2, 'e_linear_2'))
     z_mu = linear(e_linear_2, options.z_dim, 'z_mu')
     z_logvar = linear(e_linear_2, options.z_dim, 'z_logvar')
@@ -42,9 +40,7 @@ def sample_z(mu, log_var):
     return mu + tf.exp(log_var / 2) * eps
 
 # P(X|z)
-def decoder(z, reuse=False):
-    if reuse:
-        tf.get_variable_scope().reuse_variables()
+def decoder(z):
     d_linear_1 = tf.nn.relu(linear(z, hidden_layer2, 'd_linear_1'))
     d_linear_2 = tf.nn.relu(linear(d_linear_1, hidden_layer1, 'd_linear_2'))
     logits = linear(d_linear_2, input_dim, 'logits')
@@ -59,16 +55,16 @@ def train(options):
     with tf.name_scope('Latent_variable'):
         z = tf.placeholder(tf.float32, shape=[None, options.z_dim])
 
-    with tf.name_scope('Autoencoder'):
-        with tf.variable_scope(tf.get_variable_scope()):
-            z_mu, z_logvar = encoder(X)
-            z_sample = sample_z(z_mu, z_logvar)
-            decoder_output, logits = decoder(z_sample)
-            generated_images = tf.reshape(decoder_output, [-1, 28, 28, 1])
+    with tf.variable_scope('Encoder'):
+        z_mu, z_logvar = encoder(X)
 
-    with tf.variable_scope(tf.get_variable_scope()):
+    with tf.variable_scope('Decoder') as scope:
+        z_sample = sample_z(z_mu, z_logvar)
+        decoder_output, logits = decoder(z_sample)
+        generated_images = tf.reshape(decoder_output, [-1, 28, 28, 1])
+        scope.reuse_variables()
         # Sampling from random z
-        X_samples, _ = decoder(z, reuse=True)
+        X_samples, _ = decoder(z)
 
     with tf.name_scope('Loss'):
         # E[log P(X|z)]
