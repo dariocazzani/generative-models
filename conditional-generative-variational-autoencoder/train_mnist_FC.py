@@ -60,9 +60,9 @@ def decoder(z, c):
     prob = tf.nn.sigmoid(logits)
     return prob, logits
 
-def discriminator(x_hat, c):
-    with tf.name_scope('Condition_latent_variable'):
-        inputs = tf.concat(axis=1, values=[x_hat, c])
+def discriminator(x, c):
+    with tf.name_scope('Condition_input_variable'):
+        inputs = tf.concat(axis=1, values=[x, c])
 
     dis_linear_1 = tf.nn.relu(linear(inputs, discriminator_hidden_layer, 'dis_linear_1'))
     dis_linear_2 = tf.nn.relu(linear(dis_linear_1, discriminator_hidden_layer, 'dis_linear_2'))
