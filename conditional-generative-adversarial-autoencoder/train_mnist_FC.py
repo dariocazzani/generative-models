@@ -39,7 +39,8 @@ lambda_reconstruction = 1.E2
 def encoder(x, c):
     with tf.name_scope('Condition_input'):
         inputs = tf.concat(axis=1, values=[x, c])
-    e_linear_1 = tf.nn.relu(linear(x, hidden_layer1, 'e_linear_1'))
+
+    e_linear_1 = tf.nn.relu(linear(inputs, hidden_layer1, 'e_linear_1'))
     e_linear_2 = tf.nn.relu(linear(e_linear_1, hidden_layer2, 'e_linear_2'))
     latent_variable = linear(e_linear_2, options.z_dim, 'e_latent_variable')
     return latent_variable
@@ -55,7 +56,7 @@ def decoder(z, c):
     return prob, logits
 
 def discriminator_x(x, c):
-    with tf.name_scope('Condition_latent_variable'):
+    with tf.name_scope('Condition_input_variable'):
         inputs = tf.concat(axis=1, values=[x, c])
 
     dis_linear_1 = tf.nn.relu(linear(inputs, discriminator_X_hidden_layer, 'dis_x_linear_1'))
@@ -187,7 +188,7 @@ def train(options):
                             _ = sess.run(clipped_z_weights)
 
                         # update autoencoder/generator parameters
-                        batch_x, _ = mnist.train.next_batch(options.batch_size)
+                        batch_x, batch_y = mnist.train.next_batch(options.batch_size)
                         batch_z = np.random.randn(options.batch_size, options.z_dim)
                         sess.run(train_op_autoenc, feed_dict={X: batch_x, c: batch_y})
                         sess.run(train_op_Enc, feed_dict={X: batch_x, c: batch_y})
