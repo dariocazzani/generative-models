@@ -13,14 +13,21 @@ def linear(_input, output_dim, scope=None, reuse=None):
 		W, b = get_variables(shape, scope)
 		return tf.matmul(_input, W) + b
 
-def AdamOptimizer(loss, lr, beta1):
-	clip_grad = False
+def AdamOptimizer(loss, lr, beta1, var_list=None, clip_grad=False):
 	optimizer = tf.train.AdamOptimizer(learning_rate=lr, beta1=beta1)
-	grads_and_vars = optimizer.compute_gradients(loss)
+	if not var_list:
+		grads_and_vars = optimizer.compute_gradients(loss)
+	else:
+		grads_and_vars = optimizer.compute_gradients(loss, var_list=var_list)
 	if clip_grad:
-		grads_and_vars = [(tf.clip_by_norm(grad, 5), var) for grad, var in grads_and_vars]
+		grads_and_vars = [(tf.clip_by_norm(grad, 1), var) for grad, var in grads_and_vars]
 	train_op = optimizer.apply_gradients(grads_and_vars)
 	return train_op, grads_and_vars
+
+def clip_weights(vars, c, scope=None):
+    with tf.variable_scope(scope):
+        out = [var.assign(tf.clip_by_value(var, -c, c, name=var.name.split(':')[0])) for var in vars]
+    return out
 
 def rnn_forward_pass(cells, _input, states):
 	cell_outputs = []
